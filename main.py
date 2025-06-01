@@ -47,7 +47,7 @@ def index():
                 is_playlist = True
                 pl = Playlist(url)
                 for video_url in pl.video_urls:
-                    yt = YouTube(video_url, use_po_token=True, session=session)
+                    yt = YouTube(video_url, use_po_token=True)
                     videos_info.append({
                         "title": yt.title,
                         "thumbnail_url": yt.thumbnail_url,
@@ -55,7 +55,7 @@ def index():
                         "video_url": yt.watch_url
                     })
             else:
-                yt = YouTube(url, use_po_token=True, session=session)
+                yt = YouTube(url, use_po_token=True)
                 videos_info.append({
                     "title": yt.title,
                     "thumbnail_url": yt.thumbnail_url,
