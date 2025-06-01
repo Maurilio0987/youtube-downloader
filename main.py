@@ -44,7 +44,6 @@ def index():
                     "video_url": yt.watch_url
                 })
         except Exception as e:
-            traceback.print_exc()
             return render_template("index.html", error=str(e))
 
     return render_template("index.html", videos=videos_info, url=url, is_playlist=is_playlist)
