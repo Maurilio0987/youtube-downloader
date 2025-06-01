@@ -1,116 +1,108 @@
-from flask import Flask, render_template, request, send_file
-import yt_dlp
-import os
+
 import shutil
 import zipfile
 from datetime import timedelta
-import uuid
+import traceback
 
 app = Flask(__name__)
+
 DOWNLOAD_FOLDER = "downloads"
 TEMP_FOLDER = "temp"
 
+# Cria as pastas se não existirem
 for folder in [DOWNLOAD_FOLDER, TEMP_FOLDER]:
     os.makedirs(folder, exist_ok=True)
 
-def get_video_info(url):
-    ydl_opts = {
-        'quiet': True,
-        'extract_flat': False,
-        'skip_download': True,
-        'format': 'bestaudio/best'
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info = ydl.extract_info(url, download=False)
-        return info
 
 def format_duration(seconds):
-    return str(timedelta(seconds=int(seconds)))
+    return str(timedelta(seconds=seconds))
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     videos_info = []
     url = ""
     is_playlist = False
-    error = ""
+    error = None
 
     if request.method == "POST":
         url = request.form["url"]
         try:
-            info = get_video_info(url)
-            if 'entries' in info:
+            if "playlist" in url:
                 is_playlist = True
-                for entry in info['entries']:
+                pl = Playlist(url)
+                pl._video_regex = r"\"url\":\"(/watch\?v=[\w-]*)"
+                for video in pl.videos:
                     videos_info.append({
-                        "title": entry.get("title"),
-                        "thumbnail_url": entry.get("thumbnail"),
-                        "duration": format_duration(entry.get("duration", 0)),
-                        "video_url": entry.get("url")
+                        "title": video.title,
+                        "thumbnail_url": video.thumbnail_url,
+                        "duration": format_duration(video.length),
+                        "video_url": video.watch_url
                     })
             else:
+                yt = YouTube(url)
                 videos_info.append({
-                    "title": info.get("title"),
-                    "thumbnail_url": info.get("thumbnail"),
-                    "duration": format_duration(info.get("duration", 0)),
-                    "video_url": info.get("webpage_url")
+                    "title": yt.title,
+                    "thumbnail_url": yt.thumbnail_url,
+                    "duration": format_duration(yt.length),
+                    "video_url": yt.watch_url
                 })
         except Exception as e:
+            traceback.print_exc()
             error = str(e)
 
     return render_template("index.html", videos=videos_info, url=url, is_playlist=is_playlist, error=error)
 
+
 @app.route("/download", methods=["POST"])
 def download_audio():
     video_url = request.form["video_url"]
-    filename = str(uuid.uuid4()) + ".mp3"
-    output_path = os.path.join(DOWNLOAD_FOLDER, filename)
+    try:
+        yt = YouTube(video_url)
+        audio = yt.streams.filter(only_audio=True).first()
+        out_file = audio.download(output_path=DOWNLOAD_FOLDER)
+        base, ext = os.path.splitext(out_file)
+        new_file = base + ".mp3"
+        os.rename(out_file, new_file)
+        return send_file(new_file, as_attachment=True)
+    except Exception as e:
+        return f"Erro ao baixar: {e}"
 
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': output_path,
-        'quiet': True,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-        }],
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([video_url])
-
-    return send_file(output_path, as_attachment=True)
 
 @app.route("/download_zip", methods=["POST"])
 def download_zip():
     playlist_url = request.form["playlist_url"]
-    zip_name = f"playlist_{uuid.uuid4().hex[:8]}.zip"
-    zip_path = os.path.join(DOWNLOAD_FOLDER, zip_name)
+    zip_path = os.path.join(DOWNLOAD_FOLDER, "playlist.zip")
 
-    temp_dir = os.path.join(TEMP_FOLDER, uuid.uuid4().hex)
-    os.makedirs(temp_dir)
+    # Remove ZIP antigo se existir
+    if os.path.exists(zip_path):
+        os.remove(zip_path)
 
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': os.path.join(temp_dir, '%(title)s.%(ext)s'),
-        'quiet': True,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-        }],
-    }
+    try:
+        pl = Playlist(playlist_url)
+        pl._video_regex = r"\"url\":\"(/watch\?v=[\w-]*)"
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([playlist_url])
+        with zipfile.ZipFile(zip_path, "w") as zipf:
+            for video in pl.videos:
+                yt = YouTube(video.watch_url)
+                audio = yt.streams.filter(only_audio=True).first()
+                out_file = audio.download(output_path=TEMP_FOLDER)
+                base, ext = os.path.splitext(out_file)
+                new_file = base + ".mp3"
+                os.rename(out_file, new_file)
+                zipf.write(new_file, os.path.basename(new_file))
+                os.remove(new_file)
 
-    with zipfile.ZipFile(zip_path, "w") as zipf:
-        for file in os.listdir(temp_dir):
-            file_path = os.path.join(temp_dir, file)
-            zipf.write(file_path, arcname=file)
-            os.remove(file_path)
+        return send_file(zip_path, as_attachment=True)
 
-    shutil.rmtree(temp_dir)
-    return send_file(zip_path, as_attachment=True)
+    except Exception as e:
+        return f"Erro ao baixar playlist: {e}"
+
+    finally:
+        # Limpeza da pasta temp
+        shutil.rmtree(TEMP_FOLDER)
+        os.makedirs(TEMP_FOLDER, exist_ok=True)
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
