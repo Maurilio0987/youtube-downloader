@@ -27,7 +27,7 @@ def index():
         try:
             if "playlist" in url:
                 is_playlist = True
-                pl = Playlist(url)
+                pl = Playlist(url, use_po_token=True)
                 for video in pl.videos:
                     videos_info.append({
                         "title": video.title,
@@ -36,7 +36,7 @@ def index():
                         "video_url": video.watch_url
                     })
             else:
-                yt = YouTube(url)
+                yt = YouTube(url, use_po_token=True)
                 videos_info.append({
                     "title": yt.title,
                     "thumbnail_url": yt.thumbnail_url,
