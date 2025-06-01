@@ -42,7 +42,7 @@ def index():
                         "video_url": video.watch_url
                     })
             else:
-                yt = YouTube(url)
+                yt = YouTube(url, use_po_token=True)
                 videos_info.append({
                     "title": yt.title,
                     "thumbnail_url": yt.thumbnail_url,
