@@ -33,13 +33,13 @@ def index():
             if "playlist" in url:
                 is_playlist = True
                 pl = Playlist(url)
-                pl._video_regex = r"\"url\":\"(/watch\?v=[\w-]*)"
-                for video in pl.videos:
+                for video_url in pl.video_urls:
+                    yt = YouTube(video_url, use_po_token=True)
                     videos_info.append({
-                        "title": video.title,
-                        "thumbnail_url": video.thumbnail_url,
-                        "duration": format_duration(video.length),
-                        "video_url": video.watch_url
+                        "title": yt.title,
+                        "thumbnail_url": yt.thumbnail_url,
+                        "duration": format_duration(yt.length),
+                        "video_url": yt.watch_url
                     })
             else:
                 yt = YouTube(url, use_po_token=True)
