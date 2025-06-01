@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Baixar músicas do YouTube</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .loader {
+            border: 6px solid #f3f3f3;
+            border-top: 6px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            display: none;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .center {
+            text-align: center;
+        }
+    </style>
+    <script>
+        function showLoading() {
+            document.getElementById("loader").style.display = "block";
+            document.getElementById("loadingText").style.display = "block";
+        }
+    </script>
+</head>
+<body>
+    <h1 class="center">🎵 YouTube Downloader</h1>
+    <div class="center">
+        <form method="POST" onsubmit="showLoading()">
+            <input type="text" name="url" placeholder="Cole o link do vídeo ou playlist" required size="60">
+            <button type="submit">Buscar</button>
+        </form>
+
+        
+    </div>
+
+    {% if error %}
+        <p style="color:red;" class="center"><strong>{{ error }}</strong></p>
+    {% endif %}
+
+    {% if videos %}
+        <h2 class="center">Resultados:</h2>
+        <ul style="list-style: none; padding: 0;">
+        {% for v in videos %}
+            <li style="margin-bottom: 20px; border: 1px solid #ccc; padding: 10px;">
+                <img src="{{ v.thumbnail_url }}" alt="Thumb" width="160"><br>
+                <strong>{{ v.title }}</strong><br>
+                Duração: {{ v.duration }}<br>
+                <form method="POST" action="/download" onsubmit="showLoading()">
+                    <input type="hidden" name="video_url" value="{{ v.video_url }}">
+                    <button type="submit">🎧 Baixar MP3</button>
+                </form>
+            </li>
+        {% endfor %}
+        </ul>
+
+        {% if is_playlist %}
+        <div class="center">
+            <form method="POST" action="/download_zip" onsubmit="showLoading()">
+                <input type="hidden" name="playlist_url" value="{{ url }}">
+                <button type="submit">📦 Baixar Tudo (ZIP)</button>
+            </form>
+        </div>
+        {% endif %}
+    {% endif %}
+    <div id="loader" class="loader"></div>
+    <p id="loadingText" style="display:none;">🔄 Processando... Por favor, aguarde.</p>
+</body>
+</html>
