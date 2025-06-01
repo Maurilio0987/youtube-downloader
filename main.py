@@ -5,6 +5,19 @@ import shutil
 import zipfile
 from datetime import timedelta
 import traceback
+import requests
+
+
+# Definindo um cabeçalho personalizado
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Connection': 'keep-alive',
+}
+
+# Modificando a sessão do pytubefix para usar os cabeçalhos
+session = requests.Session()
+session.headers.update(headers)
 
 app = Flask(__name__)
 
@@ -34,7 +47,7 @@ def index():
                 is_playlist = True
                 pl = Playlist(url)
                 for video_url in pl.video_urls:
-                    yt = YouTube(video_url, use_po_token=True)
+                    yt = YouTube(video_url, use_po_token=True, session=session)
                     videos_info.append({
                         "title": yt.title,
                         "thumbnail_url": yt.thumbnail_url,
@@ -42,7 +55,7 @@ def index():
                         "video_url": yt.watch_url
                     })
             else:
-                yt = YouTube(url, use_po_token=True)
+                yt = YouTube(url, use_po_token=True, session=session)
                 videos_info.append({
                     "title": yt.title,
                     "thumbnail_url": yt.thumbnail_url,
